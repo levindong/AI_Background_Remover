@@ -22,13 +22,11 @@ export function FileDropZone({
   return (
     <div className="w-full">
       <div
-        className={`
-          border-2 border-dashed rounded-lg p-16 text-center transition-all cursor-pointer
-          ${isDragging 
+        className={`border-2 border-dashed rounded-lg p-16 text-center transition-all cursor-pointer ${
+          isDragging 
             ? 'border-blue-500 bg-blue-50' 
             : 'border-gray-300 bg-gray-50 hover:bg-gray-100'
-          }
-        `}
+        }`}
         onDrop={onDrop}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
