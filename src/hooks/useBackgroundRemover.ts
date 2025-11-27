@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { pipeline, env } from '@xenova/transformers';
+import { pipeline, env, AutoModelForImageSegmentation, AutoProcessor } from '@xenova/transformers';
 import type { ImageFile } from './useFileHandler';
 import {
   applyMaskToImage,
@@ -59,18 +59,48 @@ export function useBackgroundRemover() {
 
     const loadPromise = (async () => {
       try {
-        // Create pipeline with progress callback
-        const segmenter = await pipeline('image-segmentation', 'briaai/RMBG-1.4', {
-          progress_callback: (progress: any) => {
-            if (progress.status === 'progress') {
-              const progressValue = progress.progress || 0;
-              setState((prev) => ({
-                ...prev,
-                modelLoadProgress: progressValue,
-              }));
-            }
-          },
-        });
+        // Try using pipeline first, fallback to direct model loading if needed
+        let segmenter: any;
+        
+        try {
+          // Attempt to use pipeline (preferred method)
+          segmenter = await pipeline('image-segmentation', 'briaai/RMBG-1.4', {
+            progress_callback: (progress: any) => {
+              if (progress.status === 'progress') {
+                const progressValue = progress.progress || 0;
+                setState((prev) => ({
+                  ...prev,
+                  modelLoadProgress: progressValue,
+                }));
+              }
+            },
+          });
+        } catch (pipelineError: any) {
+          // If pipeline fails, try loading model directly
+          console.warn('Pipeline loading failed, trying direct model loading:', pipelineError);
+          
+          // Load model and processor directly
+          const model = await AutoModelForImageSegmentation.from_pretrained('briaai/RMBG-1.4', {
+            progress_callback: (progress: any) => {
+              if (progress.status === 'progress') {
+                const progressValue = progress.progress || 0;
+                setState((prev) => ({
+                  ...prev,
+                  modelLoadProgress: progressValue,
+                }));
+              }
+            },
+          });
+          
+          const processor = await AutoProcessor.from_pretrained('briaai/RMBG-1.4');
+          
+          // Create a custom segmenter function
+          segmenter = async (image: any) => {
+            const inputs = await processor(image);
+            const outputs = await model(inputs);
+            return outputs;
+          };
+        }
 
         segmenterRef.current = segmenter;
         setState((prev) => ({
