@@ -22,6 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-# Model files are now included in the repository
-# /models/*.onnx
-# !models/README.md
+# Model files are too large for Cloudflare Pages (25MB limit)
+# Model files should be stored externally (GitHub Releases, R2, or CDN)
+public/models/*.onnx
+!public/models/README.md

@@ -12,9 +12,13 @@ if (typeof ort === 'undefined') {
 }
 
 // Model configuration
-// 优先尝试本地模型文件，如果失败则从 Hugging Face CDN 加载
-const LOCAL_MODEL_URL = '/models/rmbg-1.4.onnx';
-const REMOTE_MODEL_URL = 'https://huggingface.co/briaai/RMBG-1.4/resolve/main/model.onnx';
+// Cloudflare Pages 限制单个文件最大 25MB，模型文件 (168MB) 需要从外部 CDN 加载
+// 优先尝试本地模型（仅用于开发环境），然后尝试 GitHub Releases CDN
+const LOCAL_MODEL_URL = '/models/rmbg-1.4.onnx'; // 仅用于本地开发
+// 使用 jsDelivr CDN 从 GitHub Releases 加载（推荐，速度快）
+const CDN_MODEL_URL = 'https://cdn.jsdelivr.net/gh/levindong/AI_Background_Remover@v1.0.0-model/public/models/rmbg-1.4.onnx';
+// 备用：直接从 GitHub Releases 加载
+const GITHUB_RELEASE_URL = 'https://github.com/levindong/AI_Background_Remover/releases/download/v1.0.0-model/rmbg-1.4.onnx';
 const MODEL_INPUT_SIZE = 1024;
 
 let session = null;
@@ -42,7 +46,7 @@ async function loadModel(progressCallback) {
       progressCallback(10);
     }
 
-    // 优先尝试本地模型
+    // 优先尝试本地模型（仅用于开发环境）
     try {
       session = await ort.InferenceSession.create(LOCAL_MODEL_URL, options);
       if (progressCallback) {
@@ -50,16 +54,31 @@ async function loadModel(progressCallback) {
       }
       return;
     } catch (localError) {
-      console.warn('Local model not found, trying Hugging Face CDN...', localError);
+      console.log('Local model not found (expected in production), trying CDN...');
       if (progressCallback) {
-        progressCallback(30);
+        progressCallback(20);
       }
     }
 
-    // 如果本地模型不存在，从 Hugging Face CDN 加载
-    // 注意：这需要模型已经转换为 ONNX 格式并上传到 Hugging Face
-    // 如果 Hugging Face 上没有 ONNX 模型，需要先转换并上传
-    session = await ort.InferenceSession.create(REMOTE_MODEL_URL, options);
+    // 从 jsDelivr CDN 加载（推荐，速度快，支持缓存）
+    try {
+      if (progressCallback) {
+        progressCallback(40);
+      }
+      session = await ort.InferenceSession.create(CDN_MODEL_URL, options);
+      if (progressCallback) {
+        progressCallback(100);
+      }
+      return;
+    } catch (cdnError) {
+      console.warn('CDN model load failed, trying GitHub Releases...', cdnError);
+      if (progressCallback) {
+        progressCallback(60);
+      }
+    }
+
+    // 备用：直接从 GitHub Releases 加载
+    session = await ort.InferenceSession.create(GITHUB_RELEASE_URL, options);
 
     if (progressCallback) {
       progressCallback(100);
