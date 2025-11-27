@@ -12,13 +12,16 @@ if (typeof ort === 'undefined') {
 }
 
 // Model configuration
-const MODEL_URL = 'https://huggingface.co/briaai/RMBG-1.4/resolve/main/model.onnx';
+// 优先尝试本地模型文件，如果失败则从 Hugging Face CDN 加载
+const LOCAL_MODEL_URL = '/models/rmbg-1.4.onnx';
+const REMOTE_MODEL_URL = 'https://huggingface.co/briaai/RMBG-1.4/resolve/main/model.onnx';
 const MODEL_INPUT_SIZE = 1024;
 
 let session = null;
 
 /**
  * Load the ONNX model
+ * 优先尝试本地模型，如果失败则从 Hugging Face CDN 加载
  */
 async function loadModel(progressCallback) {
   if (session) {
@@ -26,69 +29,126 @@ async function loadModel(progressCallback) {
   }
 
   try {
-    // Configure ONNX Runtime
-    ort.env.wasm.numThreads = 1;
-    ort.env.wasm.simd = true;
+    // Configure ONNX Runtime for better performance
+    ort.env.wasm.numThreads = 2; // 使用 2 个线程（可根据 CPU 核心数调整）
+    ort.env.wasm.simd = true; // 启用 SIMD 加速
 
-    // Load model with progress tracking
     const options = {
       executionProviders: ['wasm'],
       graphOptimizationLevel: 'all',
     };
 
-    // For progress tracking, we'll simulate it
     if (progressCallback) {
       progressCallback(10);
     }
 
-    session = await ort.InferenceSession.create(MODEL_URL, options);
+    // 优先尝试本地模型
+    try {
+      session = await ort.InferenceSession.create(LOCAL_MODEL_URL, options);
+      if (progressCallback) {
+        progressCallback(100);
+      }
+      return;
+    } catch (localError) {
+      console.warn('Local model not found, trying Hugging Face CDN...', localError);
+      if (progressCallback) {
+        progressCallback(30);
+      }
+    }
+
+    // 如果本地模型不存在，从 Hugging Face CDN 加载
+    // 注意：这需要模型已经转换为 ONNX 格式并上传到 Hugging Face
+    // 如果 Hugging Face 上没有 ONNX 模型，需要先转换并上传
+    session = await ort.InferenceSession.create(REMOTE_MODEL_URL, options);
 
     if (progressCallback) {
       progressCallback(100);
     }
   } catch (error) {
     console.error('Failed to load ONNX model:', error);
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`模型加载失败: ${errorMessage}。请确保模型文件已正确配置。详情请查看 RMBG_INTEGRATION_GUIDE.md`);
   }
 }
 
 /**
+ * Bilinear interpolation for better image resizing
+ */
+function bilinearInterpolate(srcData, srcWidth, srcHeight, x, y) {
+  const x1 = Math.floor(x);
+  const y1 = Math.floor(y);
+  const x2 = Math.min(x1 + 1, srcWidth - 1);
+  const y2 = Math.min(y1 + 1, srcHeight - 1);
+  
+  const dx = x - x1;
+  const dy = y - y1;
+  
+  const getPixel = (px, py) => {
+    const idx = (py * srcWidth + px) * 4;
+    return [
+      srcData[idx],
+      srcData[idx + 1],
+      srcData[idx + 2],
+      srcData[idx + 3]
+    ];
+  };
+  
+  const p11 = getPixel(x1, y1);
+  const p21 = getPixel(x2, y1);
+  const p12 = getPixel(x1, y2);
+  const p22 = getPixel(x2, y2);
+  
+  const interpolate = (a, b, c, d) => {
+    return a * (1 - dx) * (1 - dy) + 
+           b * dx * (1 - dy) + 
+           c * (1 - dx) * dy + 
+           d * dx * dy;
+  };
+  
+  return [
+    interpolate(p11[0], p21[0], p12[0], p22[0]),
+    interpolate(p11[1], p21[1], p12[1], p22[1]),
+    interpolate(p11[2], p21[2], p12[2], p22[2]),
+    interpolate(p11[3], p21[3], p12[3], p22[3])
+  ];
+}
+
+/**
  * Preprocess image for model input
+ * 与官方实现保持一致：归一化到 [0,1] 然后标准化到 [-1,1]
  */
 function preprocessImage(imageData) {
   const { width, height } = imageData;
   
-  // Resize to 1024x1024 if needed
-  // Use createImageBitmap for resizing in Worker
+  // Resize to 1024x1024 using bilinear interpolation
   let resizedData;
   
   if (width === MODEL_INPUT_SIZE && height === MODEL_INPUT_SIZE) {
     resizedData = imageData;
   } else {
-    // Create a temporary canvas-like structure for resizing
-    // Since we're in a Worker, we'll do manual resizing
     resizedData = new ImageData(MODEL_INPUT_SIZE, MODEL_INPUT_SIZE);
-    
-    // Simple nearest-neighbor resize (can be improved with bilinear)
     const scaleX = width / MODEL_INPUT_SIZE;
     const scaleY = height / MODEL_INPUT_SIZE;
     
     for (let y = 0; y < MODEL_INPUT_SIZE; y++) {
       for (let x = 0; x < MODEL_INPUT_SIZE; x++) {
-        const srcX = Math.floor(x * scaleX);
-        const srcY = Math.floor(y * scaleY);
-        const srcIdx = (srcY * width + srcX) * 4;
-        const dstIdx = (y * MODEL_INPUT_SIZE + x) * 4;
+        const srcX = x * scaleX;
+        const srcY = y * scaleY;
+        const [r, g, b, a] = bilinearInterpolate(imageData.data, width, height, srcX, srcY);
         
-        resizedData.data[dstIdx] = imageData.data[srcIdx];
-        resizedData.data[dstIdx + 1] = imageData.data[srcIdx + 1];
-        resizedData.data[dstIdx + 2] = imageData.data[srcIdx + 2];
-        resizedData.data[dstIdx + 3] = imageData.data[srcIdx + 3];
+        const dstIdx = (y * MODEL_INPUT_SIZE + x) * 4;
+        resizedData.data[dstIdx] = r;
+        resizedData.data[dstIdx + 1] = g;
+        resizedData.data[dstIdx + 2] = b;
+        resizedData.data[dstIdx + 3] = a;
       }
     }
   }
 
   // Convert to normalized tensor [1, 3, 1024, 1024]
+  // 预处理流程（与官方实现一致）:
+  // 1. 归一化到 [0, 1]: r / 255.0
+  // 2. 标准化到 [-1, 1]: (r / 255.0 - 0.5) / 0.5 = (r / 255.0 - 0.5) * 2
   const tensorData = new Float32Array(1 * 3 * MODEL_INPUT_SIZE * MODEL_INPUT_SIZE);
   
   for (let i = 0; i < MODEL_INPUT_SIZE * MODEL_INPUT_SIZE; i++) {
@@ -96,36 +156,104 @@ function preprocessImage(imageData) {
     const g = resizedData.data[i * 4 + 1];
     const b = resizedData.data[i * 4 + 2];
     
-    // Normalize to [-1, 1] range
-    tensorData[i] = (r / 255.0 - 0.5) / 0.5;
-    tensorData[MODEL_INPUT_SIZE * MODEL_INPUT_SIZE + i] = (g / 255.0 - 0.5) / 0.5;
-    tensorData[2 * MODEL_INPUT_SIZE * MODEL_INPUT_SIZE + i] = (b / 255.0 - 0.5) / 0.5;
+    // 标准化到 [-1, 1] 范围
+    tensorData[i] = (r / 255.0 - 0.5) * 2;  // R channel
+    tensorData[MODEL_INPUT_SIZE * MODEL_INPUT_SIZE + i] = (g / 255.0 - 0.5) * 2;  // G channel
+    tensorData[2 * MODEL_INPUT_SIZE * MODEL_INPUT_SIZE + i] = (b / 255.0 - 0.5) * 2;  // B channel
   }
 
   return tensorData;
 }
 
 /**
- * Postprocess model output to mask
+ * Resize mask using bilinear interpolation
  */
-function postprocessMask(output) {
+function resizeMaskBilinear(maskData, srcWidth, srcHeight, dstWidth, dstHeight) {
+  const resized = new Float32Array(dstWidth * dstHeight);
+  const scaleX = srcWidth / dstWidth;
+  const scaleY = srcHeight / dstHeight;
+  
+  for (let y = 0; y < dstHeight; y++) {
+    for (let x = 0; x < dstWidth; x++) {
+      const srcX = x * scaleX;
+      const srcY = y * scaleY;
+      
+      const x1 = Math.floor(srcX);
+      const y1 = Math.floor(srcY);
+      const x2 = Math.min(x1 + 1, srcWidth - 1);
+      const y2 = Math.min(y1 + 1, srcHeight - 1);
+      
+      const dx = srcX - x1;
+      const dy = srcY - y1;
+      
+      const v11 = maskData[y1 * srcWidth + x1];
+      const v21 = maskData[y1 * srcWidth + x2];
+      const v12 = maskData[y2 * srcWidth + x1];
+      const v22 = maskData[y2 * srcWidth + x2];
+      
+      const interpolated = v11 * (1 - dx) * (1 - dy) +
+                           v21 * dx * (1 - dy) +
+                           v12 * (1 - dx) * dy +
+                           v22 * dx * dy;
+      
+      resized[y * dstWidth + x] = interpolated;
+    }
+  }
+  
+  return resized;
+}
+
+/**
+ * Postprocess model output to mask
+ * 与官方实现保持一致：归一化输出到 [0,1]，然后调整回原始尺寸
+ */
+function postprocessMask(output, originalWidth, originalHeight) {
   const outputData = output.data;
   const [, , height, width] = output.dims;
   
-  // Create mask image data
-  const maskData = new Uint8ClampedArray(width * height * 4);
+  // 1. 归一化输出到 [0, 1] 范围（与官方实现一致）
+  let min = Infinity;
+  let max = -Infinity;
   
-  for (let i = 0; i < width * height; i++) {
-    const maskValue = outputData[i];
-    const normalizedValue = Math.max(0, Math.min(255, (maskValue + 1) * 127.5));
-    
-    maskData[i * 4] = normalizedValue;
-    maskData[i * 4 + 1] = normalizedValue;
-    maskData[i * 4 + 2] = normalizedValue;
-    maskData[i * 4 + 3] = normalizedValue;
+  for (let i = 0; i < outputData.length; i++) {
+    if (outputData[i] < min) min = outputData[i];
+    if (outputData[i] > max) max = outputData[i];
+  }
+  
+  const range = max - min;
+  if (range === 0) {
+    // 如果所有值相同，返回全白掩码
+    const maskData = new Uint8ClampedArray(originalWidth * originalHeight * 4);
+    maskData.fill(255);
+    return new ImageData(maskData, originalWidth, originalHeight);
+  }
+  
+  // 归一化到 [0, 1]
+  const normalized = new Float32Array(outputData.length);
+  for (let i = 0; i < outputData.length; i++) {
+    normalized[i] = (outputData[i] - min) / range;
+  }
+  
+  // 2. 调整尺寸回原始大小（使用双线性插值）
+  const resizedMask = resizeMaskBilinear(
+    normalized,
+    width,
+    height,
+    originalWidth,
+    originalHeight
+  );
+  
+  // 3. 转换为 ImageData (灰度掩码，RGBA 格式)
+  const maskData = new Uint8ClampedArray(originalWidth * originalHeight * 4);
+  for (let i = 0; i < originalWidth * originalHeight; i++) {
+    const value = Math.round(resizedMask[i] * 255);
+    maskData[i * 4] = value;      // R
+    maskData[i * 4 + 1] = value;  // G
+    maskData[i * 4 + 2] = value;  // B
+    maskData[i * 4 + 3] = value;  // A (alpha channel)
   }
 
-  return new ImageData(maskData, width, height);
+  return new ImageData(maskData, originalWidth, originalHeight);
 }
 
 /**
@@ -135,6 +263,10 @@ async function processImage(imageData) {
   if (!session) {
     throw new Error('Model not loaded');
   }
+
+  // 保存原始尺寸
+  const originalWidth = imageData.width;
+  const originalHeight = imageData.height;
 
   // Preprocess
   const inputTensor = preprocessImage(imageData);
@@ -153,8 +285,8 @@ async function processImage(imageData) {
   const outputName = session.outputNames[0];
   const output = results[outputName];
   
-  // Postprocess
-  const mask = postprocessMask(output);
+  // Postprocess (传入原始尺寸以调整掩码大小)
+  const mask = postprocessMask(output, originalWidth, originalHeight);
   
   return mask;
 }
