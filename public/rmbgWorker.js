@@ -23,10 +23,15 @@ if (typeof ort !== 'undefined') {
 
 // Model configuration
 // Cloudflare Pages 限制单个文件最大 25MB，模型文件 (168MB) 需要从外部 CDN 加载
-// 优先尝试本地模型（仅用于开发环境），然后尝试 GitHub Releases CDN
+// 优先尝试本地模型（仅用于开发环境），然后从支持 CORS 的 CDN 加载
 const LOCAL_MODEL_URL = '/models/rmbg-1.4.onnx'; // 仅用于本地开发
-// 从 GitHub Releases 加载（已上传到 v1.0.0-model release）
-const CDN_MODEL_URL = 'https://github.com/levindong/AI_Background_Remover/releases/download/v1.0.0-model/rmbg-1.4.onnx';
+// GitHub Releases 不支持 CORS，需要使用代理或支持 CORS 的 CDN
+// 方案 1: 使用 CORS 代理（临时方案）
+// const CDN_MODEL_URL = 'https://corsproxy.io/?https://github.com/levindong/AI_Background_Remover/releases/download/v1.0.0-model/rmbg-1.4.onnx';
+// 方案 2: 使用 GitHub 的 raw.githubusercontent.com（但 Releases 文件不在那里）
+// 方案 3: 使用支持 CORS 的 CDN（推荐：Cloudflare R2 或其他）
+// 临时使用 CORS Anywhere 代理（注意：生产环境应使用自己的代理或 CDN）
+const CDN_MODEL_URL = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://github.com/levindong/AI_Background_Remover/releases/download/v1.0.0-model/rmbg-1.4.onnx');
 const MODEL_INPUT_SIZE = 1024;
 
 let session = null;
