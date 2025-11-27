@@ -84,6 +84,30 @@ The model file should be:
 
 Update the `MODEL_URL` in `public/rmbgWorker.js` to point to your model file.
 
+## Python Batch Processing Script
+
+For local batch processing of images, a Python script is available in the `scripts/` directory.
+
+### Quick Start
+
+```bash
+# Install dependencies
+pip install -r scripts/requirements.txt
+
+# Process images
+python scripts/batch_remove_background.py ./images ./output
+```
+
+See [scripts/README.md](./scripts/README.md) for detailed usage instructions.
+
+### Features
+
+- Batch process entire directories
+- Maintain directory structure
+- Support for JPG, PNG, WEBP, AVIF
+- Automatic GPU detection
+- Progress tracking
+
 ## License
 
 This project uses the RMBG-1.4 model which is available for non-commercial use under the [bria-rmbg-1.4 license](https://huggingface.co/briaai/RMBG-1.4). For commercial use, please contact [BRIA AI](https://bria.ai/).
