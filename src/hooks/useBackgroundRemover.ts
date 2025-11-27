@@ -81,11 +81,20 @@ export function useBackgroundRemover() {
 
         return segmenter;
       } catch (error) {
+        console.error('Model loading error:', error);
         setState((prev) => ({
           ...prev,
           isModelLoading: false,
           modelLoadProgress: 0,
         }));
+        // Provide more helpful error message
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes('SegformerForSemanticSegmentation')) {
+          throw new Error(
+            'Model type not supported. Please ensure you are using a compatible version of @xenova/transformers. ' +
+            'The RMBG-1.4 model may require a specific model configuration.'
+          );
+        }
         throw error;
       } finally {
         modelLoadingPromiseRef.current = null;
