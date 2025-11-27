@@ -23,10 +23,10 @@ export function FileDropZone({
     <div className="w-full">
       <div
         className={`
-          border-2 border-dashed rounded-lg p-12 text-center transition-all cursor-pointer
+          border border-gray-300 rounded-lg p-16 text-center transition-all cursor-pointer
           ${isDragging 
             ? 'border-blue-500 bg-blue-50' 
-            : 'border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100'
+            : 'bg-gray-50 hover:bg-gray-100'
           }
         `}
         onDrop={onDrop}
@@ -43,7 +43,8 @@ export function FileDropZone({
         />
         <label htmlFor="file-input" className="cursor-pointer block">
           <div className="space-y-4">
-            <div className="mx-auto w-16 h-16 flex items-center justify-center">
+            {/* Cloud Upload Icon */}
+            <div className="mx-auto w-20 h-20 flex items-center justify-center">
               <svg
                 className="w-full h-full text-gray-400"
                 fill="none"
@@ -53,23 +54,27 @@ export function FileDropZone({
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth={2}
+                  strokeWidth={1.5}
                   d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                 />
               </svg>
             </div>
-            <div>
-              <p className="text-lg font-medium text-gray-700 mb-1">
-                {isDragging ? 'Drop images here' : 'Drag and drop images here'}
+            <div className="space-y-2">
+              <p className="text-base font-medium text-gray-700">
+                Click to Pick
               </p>
-              <p className="text-sm text-gray-500">
-                or <span className="text-blue-600 underline">click to select files</span>
+              <p className="text-sm text-gray-600">
+                Paste Image or Drag and Drop
+              </p>
+              <p className="text-xs text-gray-500">
+                JPG, PNG, WEBP, AVIF, ...
               </p>
             </div>
           </div>
         </label>
       </div>
 
+      {/* Selected Files Preview */}
       {files.length > 0 && (
         <div className="mt-6">
           <h3 className="text-sm font-medium text-gray-700 mb-3">
