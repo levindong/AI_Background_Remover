@@ -10,12 +10,15 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'transformers': ['@xenova/transformers'],
+          'onnx': ['onnxruntime-web'],
         },
       },
     },
   },
   optimizeDeps: {
-    exclude: ['@xenova/transformers'],
+    exclude: ['onnxruntime-web'],
+  },
+  worker: {
+    format: 'es',
   },
 })

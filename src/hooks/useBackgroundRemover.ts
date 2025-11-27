@@ -1,16 +1,11 @@
 import { useState, useCallback, useRef } from 'react';
-import { env } from '@xenova/transformers';
 import type { ImageFile } from './useFileHandler';
 import {
   applyMaskToImage,
   createBlobPreviewUrl,
   revokePreviewUrl,
 } from '../utils/imageProcessor';
-
-// Configure transformers.js environment
-env.allowLocalModels = false;
-env.allowRemoteModels = true;
-env.backends.onnx.wasm.proxy = false;
+import { ONNXModelLoader } from '../utils/onnxModelLoader';
 
 export interface ProcessedImage extends ImageFile {
   status: 'pending' | 'processing' | 'completed' | 'error';
@@ -28,7 +23,7 @@ export interface ProcessingState {
 }
 
 /**
- * Hook for background removal using RMBG-1.4 model
+ * Hook for background removal using RMBG-1.4 model via ONNX Runtime
  */
 export function useBackgroundRemover() {
   const [state, setState] = useState<ProcessingState>({
@@ -39,48 +34,48 @@ export function useBackgroundRemover() {
     modelError: null,
   });
 
-  const segmenterRef = useRef<any>(null);
-  const modelLoadingPromiseRef = useRef<Promise<any> | null>(null);
+  const modelLoaderRef = useRef<ONNXModelLoader | null>(null);
+  const modelLoadingPromiseRef = useRef<Promise<ONNXModelLoader> | null>(null);
 
   /**
    * Load the RMBG-1.4 model
    */
   const loadModel = useCallback(async () => {
-    // If model is already loaded, return it
-    if (segmenterRef.current) {
-      return segmenterRef.current;
+    // If model is already loaded, return
+    if (modelLoaderRef.current && state.isModelLoading === false && state.modelError === null) {
+      return modelLoaderRef.current;
     }
 
     // If model is currently loading, wait for it
     if (modelLoadingPromiseRef.current) {
-      return modelLoadingPromiseRef.current;
+      return modelLoadingPromiseRef.current.then(() => modelLoaderRef.current);
     }
 
     // Start loading model
-    setState((prev) => ({ ...prev, isModelLoading: true, modelLoadProgress: 0 }));
+    setState((prev) => ({ ...prev, isModelLoading: true, modelLoadProgress: 0, modelError: null }));
 
     const loadPromise = (async () => {
       try {
-        // IMPORTANT: Transformers.js currently does not support SegformerForSemanticSegmentation
-        // which is used by RMBG-1.4. This is a known limitation.
-        // 
-        // Alternative solutions:
-        // 1. Use ONNX Runtime Web directly with ONNX models
-        // 2. Use a different background removal API/service
-        // 3. Wait for Transformers.js to add support
-        // 4. Use a different model that is supported
-        
-        // Throw error - model not supported
-        const error = new Error(
-          'RMBG-1.4 model is not supported by Transformers.js. ' +
-          'The model uses SegformerForSemanticSegmentation architecture which is not yet implemented. ' +
-          '\n\nPossible solutions:\n' +
-          '1. Use ONNX Runtime Web with ONNX model files\n' +
-          '2. Use a different background removal service\n' +
-          '3. Wait for Transformers.js to add Segformer support\n' +
-          '\nFor now, please use an alternative background removal tool.'
-        );
-        throw error;
+        // Create model loader
+        if (!modelLoaderRef.current) {
+          modelLoaderRef.current = new ONNXModelLoader();
+        }
+
+        // Load model with progress callback
+        await modelLoaderRef.current.load((progress) => {
+          setState((prev) => ({
+            ...prev,
+            modelLoadProgress: progress,
+          }));
+        });
+
+        setState((prev) => ({
+          ...prev,
+          isModelLoading: false,
+          modelLoadProgress: 100,
+        }));
+
+        return modelLoaderRef.current;
       } catch (error) {
         console.error('Model loading error:', error);
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -98,74 +93,39 @@ export function useBackgroundRemover() {
 
     modelLoadingPromiseRef.current = loadPromise;
     return loadPromise;
-  }, []);
+  }, [state.isModelLoading, state.modelError]);
 
   /**
    * Process a single image
    */
   const processImage = useCallback(
-    async (imageFile: ImageFile, segmenter: any): Promise<ProcessedImage> => {
+    async (imageFile: ImageFile, modelLoader: ONNXModelLoader): Promise<ProcessedImage> => {
       try {
         // Load image into an Image element
         const img = new Image();
         const imageUrl = URL.createObjectURL(imageFile.file);
         
-        await new Promise((resolve, reject) => {
-          img.onload = resolve;
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
           img.onerror = reject;
           img.src = imageUrl;
         });
         
-        // Create canvas for model input (resize to 1024x1024)
-        const inputCanvas = document.createElement('canvas');
-        inputCanvas.width = 1024;
-        inputCanvas.height = 1024;
-        const inputCtx = inputCanvas.getContext('2d');
-        if (!inputCtx) {
+        // Create canvas from image
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
           throw new Error('Failed to get canvas context');
         }
-        inputCtx.drawImage(img, 0, 0, 1024, 1024);
+        ctx.drawImage(img, 0, 0);
         
-        // Run segmentation with return_mask option
-        const result = await segmenter(inputCanvas, { return_mask: true });
+        // Get image data
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         
-        // Extract mask from result
-        // RMBG-1.4 returns a PIL Image or canvas with the mask
-        let maskImage: HTMLImageElement | HTMLCanvasElement | null = null;
-        
-        // Handle different return types
-        if (result instanceof HTMLImageElement || result instanceof HTMLCanvasElement) {
-          maskImage = result;
-        } else if (Array.isArray(result) && result.length > 0) {
-          const firstResult = result[0];
-          if (firstResult instanceof HTMLImageElement || firstResult instanceof HTMLCanvasElement) {
-            maskImage = firstResult;
-          } else if (firstResult.mask) {
-            maskImage = firstResult.mask;
-          }
-        } else if (result && typeof result === 'object') {
-          if (result.mask) {
-            maskImage = result.mask;
-          } else if (result instanceof HTMLImageElement || result instanceof HTMLCanvasElement) {
-            maskImage = result;
-          }
-        }
-        
-        if (!maskImage) {
-          console.error('Model output:', result);
-          throw new Error('Failed to extract mask from model output. Model may not be compatible.');
-        }
-        
-        // Convert mask to ImageData
-        const maskCanvas = document.createElement('canvas');
-        maskCanvas.width = maskImage instanceof HTMLImageElement ? maskImage.width : maskImage.width;
-        maskCanvas.height = maskImage instanceof HTMLImageElement ? maskImage.height : maskImage.height;
-        const maskCtx = maskCanvas.getContext('2d');
-        if (!maskCtx) {
-          throw new Error('Failed to get mask canvas context');
-        }
-        maskCtx.drawImage(maskImage, 0, 0);
-        const mask = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+        // Process with ONNX model
+        const mask = await modelLoader.processImage(imageData);
         
         // Clean up
         URL.revokeObjectURL(imageUrl);
@@ -213,7 +173,10 @@ export function useBackgroundRemover() {
 
       try {
         // Load model if not already loaded
-        const segmenter = await loadModel();
+        const modelLoader = await loadModel();
+        if (!modelLoader) {
+          throw new Error('Model loader not available');
+        }
 
         // Process all images in parallel
         const processPromises = initialProcessed.map(async (processedImg, index) => {
@@ -225,7 +188,7 @@ export function useBackgroundRemover() {
           });
 
           // Process image
-          const result = await processImage(processedImg, segmenter);
+          const result = await processImage(processedImg, modelLoader);
 
           // Update with result
           setState((prev) => {
@@ -270,4 +233,3 @@ export function useBackgroundRemover() {
     resetProcessed,
   };
 }
-
