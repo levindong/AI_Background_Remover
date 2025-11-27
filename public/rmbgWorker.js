@@ -26,12 +26,11 @@ if (typeof ort !== 'undefined') {
 // 优先尝试本地模型（仅用于开发环境），然后从支持 CORS 的 CDN 加载
 const LOCAL_MODEL_URL = '/models/rmbg-1.4.onnx'; // 仅用于本地开发
 // GitHub Releases 不支持 CORS，需要使用代理或支持 CORS 的 CDN
-// 方案 1: 使用 CORS 代理（临时方案）
-// const CDN_MODEL_URL = 'https://corsproxy.io/?https://github.com/levindong/AI_Background_Remover/releases/download/v1.0.0-model/rmbg-1.4.onnx';
-// 方案 2: 使用 GitHub 的 raw.githubusercontent.com（但 Releases 文件不在那里）
-// 方案 3: 使用支持 CORS 的 CDN（推荐：Cloudflare R2 或其他）
-// 临时使用 CORS Anywhere 代理（注意：生产环境应使用自己的代理或 CDN）
-const CDN_MODEL_URL = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://github.com/levindong/AI_Background_Remover/releases/download/v1.0.0-model/rmbg-1.4.onnx');
+// 使用 Cloudflare Worker 作为 CORS 代理（部署在同一个 Pages 项目中）
+// 如果 Worker 不可用，可以尝试其他 CORS 代理服务
+const GITHUB_RELEASE_URL = 'https://github.com/levindong/AI_Background_Remover/releases/download/v1.0.0-model/rmbg-1.4.onnx';
+// 使用 Cloudflare Worker CORS 代理
+const CDN_MODEL_URL = `${window.location.origin}/cors-proxy?url=${encodeURIComponent(GITHUB_RELEASE_URL)}`;
 const MODEL_INPUT_SIZE = 1024;
 
 let session = null;
@@ -81,11 +80,22 @@ async function loadModel(progressCallback) {
       }
     }
 
-    // 从 GitHub Releases CDN 加载
+    // 从 GitHub Releases 通过 CORS 代理加载
     if (progressCallback) {
       progressCallback(40);
     }
-    session = await ort.InferenceSession.create(CDN_MODEL_URL, options);
+    
+    // 尝试使用 Cloudflare Worker 代理
+    try {
+      session = await ort.InferenceSession.create(CDN_MODEL_URL, options);
+    } catch (proxyError) {
+      console.warn('CORS proxy failed, trying direct GitHub URL (may fail due to CORS)...', proxyError);
+      // 如果代理失败，尝试直接访问（可能会因为 CORS 失败，但有些浏览器可能允许）
+      if (progressCallback) {
+        progressCallback(60);
+      }
+      session = await ort.InferenceSession.create(GITHUB_RELEASE_URL, options);
+    }
 
     if (progressCallback) {
       progressCallback(100);
