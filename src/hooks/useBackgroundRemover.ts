@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { pipeline, env, AutoModelForImageSegmentation, AutoProcessor } from '@xenova/transformers';
+import { env } from '@xenova/transformers';
 import type { ImageFile } from './useFileHandler';
 import {
   applyMaskToImage,
@@ -24,6 +24,7 @@ export interface ProcessingState {
   modelLoadProgress: number;
   isProcessing: boolean;
   processedImages: ProcessedImage[];
+  modelError: string | null;
 }
 
 /**
@@ -35,6 +36,7 @@ export function useBackgroundRemover() {
     modelLoadProgress: 0,
     isProcessing: false,
     processedImages: [],
+    modelError: null,
   });
 
   const segmenterRef = useRef<any>(null);
@@ -59,72 +61,35 @@ export function useBackgroundRemover() {
 
     const loadPromise = (async () => {
       try {
-        // Try using pipeline first, fallback to direct model loading if needed
-        let segmenter: any;
+        // IMPORTANT: Transformers.js currently does not support SegformerForSemanticSegmentation
+        // which is used by RMBG-1.4. This is a known limitation.
+        // 
+        // Alternative solutions:
+        // 1. Use ONNX Runtime Web directly with ONNX models
+        // 2. Use a different background removal API/service
+        // 3. Wait for Transformers.js to add support
+        // 4. Use a different model that is supported
         
-        try {
-          // Attempt to use pipeline (preferred method)
-          segmenter = await pipeline('image-segmentation', 'briaai/RMBG-1.4', {
-            progress_callback: (progress: any) => {
-              if (progress.status === 'progress') {
-                const progressValue = progress.progress || 0;
-                setState((prev) => ({
-                  ...prev,
-                  modelLoadProgress: progressValue,
-                }));
-              }
-            },
-          });
-        } catch (pipelineError: any) {
-          // If pipeline fails, try loading model directly
-          console.warn('Pipeline loading failed, trying direct model loading:', pipelineError);
-          
-          // Load model and processor directly
-          const model = await AutoModelForImageSegmentation.from_pretrained('briaai/RMBG-1.4', {
-            progress_callback: (progress: any) => {
-              if (progress.status === 'progress') {
-                const progressValue = progress.progress || 0;
-                setState((prev) => ({
-                  ...prev,
-                  modelLoadProgress: progressValue,
-                }));
-              }
-            },
-          });
-          
-          const processor = await AutoProcessor.from_pretrained('briaai/RMBG-1.4');
-          
-          // Create a custom segmenter function
-          segmenter = async (image: any) => {
-            const inputs = await processor(image);
-            const outputs = await model(inputs);
-            return outputs;
-          };
-        }
-
-        segmenterRef.current = segmenter;
-        setState((prev) => ({
-          ...prev,
-          isModelLoading: false,
-          modelLoadProgress: 100,
-        }));
-
-        return segmenter;
+        // Throw error - model not supported
+        const error = new Error(
+          'RMBG-1.4 model is not supported by Transformers.js. ' +
+          'The model uses SegformerForSemanticSegmentation architecture which is not yet implemented. ' +
+          '\n\nPossible solutions:\n' +
+          '1. Use ONNX Runtime Web with ONNX model files\n' +
+          '2. Use a different background removal service\n' +
+          '3. Wait for Transformers.js to add Segformer support\n' +
+          '\nFor now, please use an alternative background removal tool.'
+        );
+        throw error;
       } catch (error) {
         console.error('Model loading error:', error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
         setState((prev) => ({
           ...prev,
           isModelLoading: false,
           modelLoadProgress: 0,
+          modelError: errorMessage,
         }));
-        // Provide more helpful error message
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        if (errorMessage.includes('SegformerForSemanticSegmentation')) {
-          throw new Error(
-            'Model type not supported. Please ensure you are using a compatible version of @xenova/transformers. ' +
-            'The RMBG-1.4 model may require a specific model configuration.'
-          );
-        }
         throw error;
       } finally {
         modelLoadingPromiseRef.current = null;
