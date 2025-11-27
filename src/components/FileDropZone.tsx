@@ -23,10 +23,10 @@ export function FileDropZone({
     <div className="w-full">
       <div
         className={`
-          border border-gray-300 rounded-lg p-16 text-center transition-all cursor-pointer
+          border-2 border-dashed rounded-lg p-16 text-center transition-all cursor-pointer
           ${isDragging 
             ? 'border-blue-500 bg-blue-50' 
-            : 'bg-gray-50 hover:bg-gray-100'
+            : 'border-gray-300 bg-gray-50 hover:bg-gray-100'
           }
         `}
         onDrop={onDrop}
