@@ -60,25 +60,11 @@ async function loadModel(progressCallback) {
       }
     }
 
-    // 从 jsDelivr CDN 加载（推荐，速度快，支持缓存）
-    try {
-      if (progressCallback) {
-        progressCallback(40);
-      }
-      session = await ort.InferenceSession.create(CDN_MODEL_URL, options);
-      if (progressCallback) {
-        progressCallback(100);
-      }
-      return;
-    } catch (cdnError) {
-      console.warn('CDN model load failed, trying GitHub Releases...', cdnError);
-      if (progressCallback) {
-        progressCallback(60);
-      }
+    // 从 GitHub Releases CDN 加载
+    if (progressCallback) {
+      progressCallback(40);
     }
-
-    // 备用：直接从 GitHub Releases 加载
-    session = await ort.InferenceSession.create(GITHUB_RELEASE_URL, options);
+    session = await ort.InferenceSession.create(CDN_MODEL_URL, options);
 
     if (progressCallback) {
       progressCallback(100);
