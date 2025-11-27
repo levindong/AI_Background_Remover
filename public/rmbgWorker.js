@@ -8,7 +8,17 @@
 
 // Try to use global ort if available, otherwise load from CDN
 if (typeof ort === 'undefined') {
-  importScripts('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.min.js');
+  importScripts('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.2/dist/ort.min.js');
+}
+
+// 配置 ONNX Runtime WASM 路径
+// 使用 CDN 提供 WASM 文件，避免路径解析问题
+if (typeof ort !== 'undefined') {
+  // 配置 WASM 文件路径（从 CDN 加载）
+  ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.2/dist/';
+  // 使用单线程版本（不需要 crossOriginIsolated）
+  ort.env.wasm.numThreads = 1;
+  ort.env.wasm.simd = true;
 }
 
 // Model configuration
@@ -33,9 +43,17 @@ async function loadModel(progressCallback) {
   }
 
   try {
-    // Configure ONNX Runtime for better performance
-    ort.env.wasm.numThreads = 2; // 使用 2 个线程（可根据 CPU 核心数调整）
-    ort.env.wasm.simd = true; // 启用 SIMD 加速
+    // 配置 ONNX Runtime
+    // 注意：多线程需要 crossOriginIsolated，Cloudflare Pages 可能不支持
+    // 使用单线程版本更稳定
+    if (typeof ort !== 'undefined' && ort.env) {
+      ort.env.wasm.numThreads = 1; // 使用单线程（避免 crossOriginIsolated 要求）
+      ort.env.wasm.simd = true; // 启用 SIMD 加速
+      // 确保 WASM 文件路径正确
+      if (!ort.env.wasm.wasmPaths) {
+        ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.2/dist/';
+      }
+    }
 
     const options = {
       executionProviders: ['wasm'],
