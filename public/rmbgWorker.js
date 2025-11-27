@@ -25,10 +25,8 @@ if (typeof ort !== 'undefined') {
 // Cloudflare Pages 限制单个文件最大 25MB，模型文件 (168MB) 需要从外部 CDN 加载
 // 优先尝试本地模型（仅用于开发环境），然后尝试 GitHub Releases CDN
 const LOCAL_MODEL_URL = '/models/rmbg-1.4.onnx'; // 仅用于本地开发
-// 使用 jsDelivr CDN 从 GitHub Releases 加载（推荐，速度快）
-const CDN_MODEL_URL = 'https://cdn.jsdelivr.net/gh/levindong/AI_Background_Remover@v1.0.0-model/public/models/rmbg-1.4.onnx';
-// 备用：直接从 GitHub Releases 加载
-const GITHUB_RELEASE_URL = 'https://github.com/levindong/AI_Background_Remover/releases/download/v1.0.0-model/rmbg-1.4.onnx';
+// 从 GitHub Releases 加载（已上传到 v1.0.0-model release）
+const CDN_MODEL_URL = 'https://github.com/levindong/AI_Background_Remover/releases/download/v1.0.0-model/rmbg-1.4.onnx';
 const MODEL_INPUT_SIZE = 1024;
 
 let session = null;
