@@ -27,10 +27,9 @@ if (typeof ort !== 'undefined') {
 const LOCAL_MODEL_URL = '/models/rmbg-1.4.onnx'; // 仅用于本地开发
 // GitHub Releases 不支持 CORS，需要使用代理或支持 CORS 的 CDN
 // 使用 Cloudflare Worker 作为 CORS 代理（部署在同一个 Pages 项目中）
-// 如果 Worker 不可用，可以尝试其他 CORS 代理服务
 const GITHUB_RELEASE_URL = 'https://github.com/levindong/AI_Background_Remover/releases/download/v1.0.0-model/rmbg-1.4.onnx';
-// 使用 Cloudflare Worker CORS 代理
-const CDN_MODEL_URL = `${window.location.origin}/cors-proxy?url=${encodeURIComponent(GITHUB_RELEASE_URL)}`;
+// 使用 Cloudflare Worker CORS 代理（使用相对路径，Worker 会自动处理）
+const CDN_MODEL_URL = `/cors-proxy?url=${encodeURIComponent(GITHUB_RELEASE_URL)}`;
 const MODEL_INPUT_SIZE = 1024;
 
 let session = null;
