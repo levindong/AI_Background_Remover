@@ -47,39 +47,37 @@ function App() {
   }, [fileHandler.files]);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="min-h-screen bg-white">
+      <div className="max-w-4xl mx-auto px-4 py-12">
         {/* Header */}
-        <header className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+        <header className="text-center mb-12">
+          <h1 className="text-3xl font-bold text-gray-900 mb-3">
             AI Background Remover
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Remove backgrounds from your images using AI - all processing
-            happens in your browser
+          <p className="text-sm text-gray-600 mb-2">
+            Model From <span className="font-semibold">RMBG-1.4</span>
           </p>
-          <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
-            Privacy First: Your images are never uploaded to any server
+          <p className="text-sm text-gray-500">
+            <strong>Privacy First:</strong> All image processing happens directly in your browser. Your images are never uploaded to any server, ensuring complete privacy and security of your data.
           </p>
         </header>
 
         {/* Model Loading Indicator */}
         {isModelLoading && (
-          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <div className="mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-center space-x-3">
-              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                <p className="text-sm font-medium text-blue-900">
                   Loading AI Model...
                 </p>
-                <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                  First time loading may take a moment. The model will be cached
-                  for future use.
+                <p className="text-xs text-blue-700 mt-1">
+                  First time loading may take a moment. The model will be cached for future use.
                 </p>
                 {modelLoadProgress > 0 && (
-                  <div className="mt-2 w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2">
+                  <div className="mt-2 w-full bg-blue-200 rounded-full h-1.5">
                     <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
                       style={{ width: `${modelLoadProgress}%` }}
                     />
                   </div>
@@ -90,7 +88,7 @@ function App() {
         )}
 
         {/* File Drop Zone */}
-        <div className="mb-6">
+        <div className="mb-8">
           <FileDropZone
             files={fileHandler.files}
             isDragging={fileHandler.isDragging}
@@ -104,46 +102,57 @@ function App() {
 
         {/* Processing Status */}
         {processedImages.length > 0 && (
-          <>
+          <div className="mb-8">
             <ProcessingList processedImages={processedImages} />
             <div className="mt-6 flex justify-center">
               <DownloadButton processedImages={processedImages} />
             </div>
-          </>
+          </div>
         )}
 
         {/* Instructions */}
         {fileHandler.files.length === 0 && !isProcessing && (
-          <div className="mt-8 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          <div className="mt-12">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
               How to Use
             </h2>
-            <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-              <li className="flex items-start">
-                <span className="mr-2">•</span>
-                <span>
-                  Drag and drop your image files or folders into the upload area
-                </span>
-              </li>
-              <li className="flex items-start">
-                <span className="mr-2">•</span>
-                <span>Or click to select files from your computer</span>
-              </li>
-              <li className="flex items-start">
-                <span className="mr-2">•</span>
-                <span>Wait for the AI model to process your images</span>
-              </li>
-              <li className="flex items-start">
-                <span className="mr-2">•</span>
-                <span>Download all processed images as a ZIP file</span>
-              </li>
+            <ul className="space-y-2 text-sm text-gray-700 mb-6">
+              <li>• Drag and drop your image into the upload area</li>
+              <li>• Or click to select an image from your computer</li>
+              <li>• Or paste your image directly (Ctrl+V / Cmd+V)</li>
+              <li>• Wait for the AI model to process your image</li>
+              <li>• Download the processed image with removed background</li>
             </ul>
-            <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded">
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                <strong>Note:</strong> The first processing requires downloading
-                and initializing the AI model (~44MB). Subsequent processing will
-                be much faster as the model is cached in your browser.
-              </p>
+
+            <div className="border-t pt-6">
+              <h3 className="text-md font-semibold text-gray-900 mb-3">FAQ</h3>
+              
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-gray-900 mb-1">
+                  What image formats are supported?
+                </h4>
+                <p className="text-sm text-gray-600">
+                  We support common image formats including JPG, PNG, WEBP, and AVIF.
+                </p>
+              </div>
+
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-gray-900 mb-1">
+                  Why is the first processing slow?
+                </h4>
+                <p className="text-sm text-gray-600">
+                  The first processing requires downloading and initializing the AI model in your browser. Subsequent processing will be much faster.
+                </p>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium text-gray-900 mb-1">
+                  Is there an image size limit?
+                </h4>
+                <p className="text-sm text-gray-600">
+                  For optimal performance and browser stability, we recommend images under 10MB. Larger images may still work but could affect processing speed.
+                </p>
+              </div>
             </div>
           </div>
         )}

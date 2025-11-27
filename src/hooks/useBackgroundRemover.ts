@@ -7,9 +7,10 @@ import {
   revokePreviewUrl,
 } from '../utils/imageProcessor';
 
-// Disable local model files, use CDN
+// Configure transformers.js environment
 env.allowLocalModels = false;
 env.allowRemoteModels = true;
+env.backends.onnx.wasm.proxy = false;
 
 export interface ProcessedImage extends ImageFile {
   status: 'pending' | 'processing' | 'completed' | 'error';
@@ -121,20 +122,22 @@ export function useBackgroundRemover() {
         }
         inputCtx.drawImage(img, 0, 0, 1024, 1024);
         
-        // Run segmentation - Transformers.js returns the result directly
-        const result = await segmenter(inputCanvas);
+        // Run segmentation with return_mask option
+        const result = await segmenter(inputCanvas, { return_mask: true });
         
         // Extract mask from result
-        // The result can be an array of objects with 'mask' property, or a single object
+        // RMBG-1.4 returns a PIL Image or canvas with the mask
         let maskImage: HTMLImageElement | HTMLCanvasElement | null = null;
         
-        if (Array.isArray(result) && result.length > 0) {
-          // If result is an array, get the first item
+        // Handle different return types
+        if (result instanceof HTMLImageElement || result instanceof HTMLCanvasElement) {
+          maskImage = result;
+        } else if (Array.isArray(result) && result.length > 0) {
           const firstResult = result[0];
-          if (firstResult.mask) {
-            maskImage = firstResult.mask;
-          } else if (firstResult instanceof HTMLImageElement || firstResult instanceof HTMLCanvasElement) {
+          if (firstResult instanceof HTMLImageElement || firstResult instanceof HTMLCanvasElement) {
             maskImage = firstResult;
+          } else if (firstResult.mask) {
+            maskImage = firstResult.mask;
           }
         } else if (result && typeof result === 'object') {
           if (result.mask) {
@@ -145,7 +148,8 @@ export function useBackgroundRemover() {
         }
         
         if (!maskImage) {
-          throw new Error('Failed to extract mask from model output');
+          console.error('Model output:', result);
+          throw new Error('Failed to extract mask from model output. Model may not be compatible.');
         }
         
         // Convert mask to ImageData

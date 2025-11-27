@@ -28,10 +28,9 @@ export function DownloadButton({ processedImages }: DownloadButtonProps) {
   return (
     <button
       onClick={handleDownload}
-      className="mt-6 w-full md:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
       Download All ({completedImages.length} images) as ZIP
     </button>
   );
 }
-

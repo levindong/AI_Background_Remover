@@ -20,34 +20,35 @@ export function ProcessingList({ processedImages }: ProcessingListProps) {
   ).length;
 
   return (
-    <div className="mt-6">
-      <div className="mb-4">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">
           Processing Status
         </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Completed: {completedCount} | Processing: {processingCount} | Errors:{' '}
-          {errorCount}
+        <p className="text-sm text-gray-600">
+          Completed: <span className="font-medium text-green-600">{completedCount}</span> | 
+          Processing: <span className="font-medium text-blue-600">{processingCount}</span> | 
+          Errors: <span className="font-medium text-red-600">{errorCount}</span>
         </p>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {processedImages.map((img) => (
           <div
             key={img.id}
-            className="flex items-center space-x-4 p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
+            className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg bg-white"
           >
             <div className="flex-shrink-0">
               {img.status === 'pending' && (
-                <div className="w-8 h-8 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+                <div className="w-6 h-6 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
               )}
               {img.status === 'processing' && (
-                <div className="w-8 h-8 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+                <div className="w-6 h-6 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
               )}
               {img.status === 'completed' && (
-                <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
                   <svg
-                    className="w-5 h-5 text-white"
+                    className="w-4 h-4 text-white"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -62,9 +63,9 @@ export function ProcessingList({ processedImages }: ProcessingListProps) {
                 </div>
               )}
               {img.status === 'error' && (
-                <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
+                <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
                   <svg
-                    className="w-5 h-5 text-white"
+                    className="w-4 h-4 text-white"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -81,11 +82,11 @@ export function ProcessingList({ processedImages }: ProcessingListProps) {
             </div>
 
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+              <p className="text-sm font-medium text-gray-900 truncate">
                 {img.file.name}
               </p>
               {img.status === 'error' && img.error && (
-                <p className="text-xs text-red-500 mt-1">{img.error}</p>
+                <p className="text-xs text-red-600 mt-1">{img.error}</p>
               )}
             </div>
 
@@ -94,13 +95,13 @@ export function ProcessingList({ processedImages }: ProcessingListProps) {
                 <span className="text-xs text-gray-500">Pending</span>
               )}
               {img.status === 'processing' && (
-                <span className="text-xs text-blue-500">Processing...</span>
+                <span className="text-xs text-blue-600 font-medium">Processing...</span>
               )}
               {img.status === 'completed' && (
-                <span className="text-xs text-green-500">Completed</span>
+                <span className="text-xs text-green-600 font-medium">Completed</span>
               )}
               {img.status === 'error' && (
-                <span className="text-xs text-red-500">Error</span>
+                <span className="text-xs text-red-600 font-medium">Error</span>
               )}
             </div>
           </div>
@@ -109,4 +110,3 @@ export function ProcessingList({ processedImages }: ProcessingListProps) {
     </div>
   );
 }
-

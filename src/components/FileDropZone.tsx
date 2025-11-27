@@ -23,10 +23,10 @@ export function FileDropZone({
     <div className="w-full">
       <div
         className={`
-          border-2 border-dashed rounded-lg p-8 text-center transition-colors
+          border-2 border-dashed rounded-lg p-12 text-center transition-all cursor-pointer
           ${isDragging 
-            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-            : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+            ? 'border-blue-500 bg-blue-50' 
+            : 'border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100'
           }
         `}
         onDrop={onDrop}
@@ -41,30 +41,29 @@ export function FileDropZone({
           accept="image/jpeg,image/jpg,image/png,image/webp,image/avif"
           onChange={onFileSelect}
         />
-        <label htmlFor="file-input" className="cursor-pointer">
+        <label htmlFor="file-input" className="cursor-pointer block">
           <div className="space-y-4">
-            <svg
-              className="mx-auto h-12 w-12 text-gray-400"
-              stroke="currentColor"
-              fill="none"
-              viewBox="0 0 48 48"
-            >
-              <path
-                d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <div className="mx-auto w-16 h-16 flex items-center justify-center">
+              <svg
+                className="w-full h-full text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                />
+              </svg>
+            </div>
             <div>
-              <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
+              <p className="text-lg font-medium text-gray-700 mb-1">
                 {isDragging ? 'Drop images here' : 'Drag and drop images here'}
               </p>
-              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                or click to select files
-              </p>
-              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                Supports JPG, PNG, WEBP, AVIF
+              <p className="text-sm text-gray-500">
+                or <span className="text-blue-600 underline">click to select files</span>
               </p>
             </div>
           </div>
@@ -72,17 +71,15 @@ export function FileDropZone({
       </div>
 
       {files.length > 0 && (
-        <div className="mt-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Selected Files ({files.length})
-            </h3>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        <div className="mt-6">
+          <h3 className="text-sm font-medium text-gray-700 mb-3">
+            Selected Files ({files.length})
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
             {files.map((file) => (
               <div
                 key={file.id}
-                className="relative group rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700"
+                className="relative group rounded-lg overflow-hidden border border-gray-200 bg-white"
               >
                 <img
                   src={file.preview}
@@ -91,11 +88,11 @@ export function FileDropZone({
                 />
                 <button
                   onClick={() => onRemoveFile(file.id)}
-                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
                   aria-label="Remove file"
                 >
                   <svg
-                    className="w-4 h-4"
+                    className="w-3 h-3"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -108,7 +105,7 @@ export function FileDropZone({
                     />
                   </svg>
                 </button>
-                <p className="p-2 text-xs text-gray-600 dark:text-gray-400 truncate">
+                <p className="p-2 text-xs text-gray-600 truncate bg-gray-50">
                   {file.file.name}
                 </p>
               </div>
